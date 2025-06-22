@@ -335,10 +335,61 @@ def main():
         # Show users
         st.write("### Users Table")
         users_df = pd.read_sql_query("SELECT * FROM users", conn)
-        # Display skills as tags
         if not users_df.empty and 'skills' in users_df.columns:
             users_df['skills'] = users_df['skills'].fillna('').apply(lambda x: '  '.join([f'`{s.strip()}`' for s in x.split(',') if s.strip()]))
-        st.dataframe(users_df, use_container_width=True, hide_index=True)
+        # Display table with edit/delete buttons
+        for idx, row in users_df.iterrows():
+            cols = st.columns([2, 2, 1.5, 2, 2, 2, 1, 1])
+            cols[0].write(row['name'])
+            cols[1].write(row.get('chinese_name', ''))
+            cols[2].write(row['age'])
+            cols[3].write(row['birthday'])
+            cols[4].write(row['skills'])
+            edit_key = f"edit_{row['id']}"
+            delete_key = f"delete_{row['id']}"
+            if cols[5].button("Edit", key=edit_key):
+                st.session_state['edit_user_id'] = row['id']
+                st.session_state['edit_user_data'] = row
+            if cols[6].button("Delete", key=delete_key):
+                st.session_state['delete_user_id'] = row['id']
+        # Edit user form
+        if 'edit_user_id' in st.session_state:
+            user_id = st.session_state['edit_user_id']
+            user_data = st.session_state['edit_user_data']
+            st.info(f"Editing user: {user_data['name']}")
+            with st.form("edit_user_form"):
+                name = st.text_input("Name", value=user_data['name'])
+                chinese_name = st.text_input("Chinese Name (中文名)", value=user_data.get('chinese_name', ''))
+                age = st.number_input("Age", min_value=0, max_value=120, step=1, value=int(user_data['age']))
+                birthday = st.date_input("Birthday", value=datetime.datetime.strptime(user_data['birthday'], '%Y-%m-%d').date() if user_data['birthday'] else datetime.date.today())
+                skills_input = st.text_input("Skills (comma separated)", value=user_data['skills'].replace('`', '').replace('  ', ',') if user_data['skills'] else '')
+                submitted = st.form_submit_button("Update User")
+                if submitted and name:
+                    skills = ','.join([s.strip() for s in skills_input.split(',') if s.strip()]) if skills_input else ''
+                    c.execute("UPDATE users SET name=?, chinese_name=?, age=?, birthday=?, skills=? WHERE id=?", (name, chinese_name, age, birthday.strftime('%Y-%m-%d'), skills, user_id))
+                    conn.commit()
+                    st.success(f"User '{name}' updated.")
+                    del st.session_state['edit_user_id']
+                    del st.session_state['edit_user_data']
+                    st.rerun()
+            if st.button("Cancel Edit", key="cancel_edit"):
+                del st.session_state['edit_user_id']
+                del st.session_state['edit_user_data']
+                st.rerun()
+        # Delete confirmation
+        if 'delete_user_id' in st.session_state:
+            user_id = st.session_state['delete_user_id']
+            st.warning("Are you sure you want to delete this user?")
+            col1, col2 = st.columns(2)
+            if col1.button("Yes, Delete", key="confirm_delete"):
+                c.execute("DELETE FROM users WHERE id=?", (user_id,))
+                conn.commit()
+                st.success("User deleted.")
+                del st.session_state['delete_user_id']
+                st.rerun()
+            if col2.button("Cancel", key="cancel_delete"):
+                del st.session_state['delete_user_id']
+                st.rerun()
         conn.close()
 
 if __name__ == "__main__":
