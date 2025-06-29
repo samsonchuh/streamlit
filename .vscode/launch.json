@@ -23,6 +23,15 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Run CRM Opportunity App",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["run", "${workspaceFolder}/crm_opportunity_app.py"]
         }
     ]
 }
